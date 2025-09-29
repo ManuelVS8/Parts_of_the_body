@@ -72,7 +72,11 @@
   /* Game layout */
   .board{ display:grid; grid-template-columns:1fr; gap:.8rem; align-items:start; }
   .panel{ background:#f8fbff; border:2px solid #d3e2ff; border-radius:12px; padding:.7rem .9rem; display:flex; align-items:center; justify-content:space-between; gap:.8rem; }
-  .word-display{ font-size:clamp(1.2rem,4.5vw,1.8rem); font-weight:900; color:var(--blue-700); text-align:center; flex:1; }
+  .word-display-container{ display:flex; align-items:center; justify-content:center; gap:0.5rem; flex:1; }
+  .word-display{ font-size:clamp(1.2rem,4.5vw,1.8rem); font-weight:900; color:var(--blue-700); text-align:center; }
+  .btn-play-word{ background:var(--blue-600); color:#fff; border:none; border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background-color .2s; }
+  .btn-play-word:hover{ background:var(--blue-700); }
+  .btn-play-word svg{ width:20px; height:20px; }
 
   /* Arrow buttons made of triangles */
   .arrow-wrap{ display:flex; gap:.5rem; align-items:center; }
@@ -113,6 +117,39 @@
   .confetti{ position:fixed; width:10px; height:10px; border-radius:50%; animation: confetti-fall 3s linear forwards; z-index:999; }
   @keyframes confetti-fall{ 0%{ transform:translate(0, -20px) rotate(0); opacity:1;} 100%{ transform:translate(var(--tx), var(--ty)) rotate(360deg); opacity:0; } }
 
+  /* Loading indicator */
+  .loading-indicator {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    flex-direction: column;
+  }
+  .loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid var(--orange);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+  }
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  .loading-text {
+    color: white;
+    font-size: 1.2rem;
+    text-align: center;
+  }
+
   /* Responsive layout: optimized for vertical screens */
   @media (min-width:900px){ .board{ grid-template-columns: 360px 1fr; align-items:start; } .panel{ order:1; } .stage{ order:2; } }
   @media (max-width:899px){ /* vertical phones & tablets */
@@ -120,7 +157,7 @@
     .board{ grid-template-columns:1fr; }
     .panel{ display:flex; flex-direction:row; align-items:center; justify-content:space-between; padding:.6rem; }
     /* place word display at top full width and image below */
-    .word-display{ order:0; width:100%; margin-bottom:.6rem; }
+    .word-display-container{ order:0; width:100%; margin-bottom:.6rem; }
     .stage{ order:1; }
     .arrow{ width:40px; height:40px; }
   }
@@ -135,12 +172,11 @@
   <section class="screen active" id="startScreen" aria-labelledby="title">
     <header>
       <h1 id="title">Parts of the body</h1>
-      <br>
       <div class="subtitle">Identify the <span class="highlight-keyword">parts of the body</span>.</div>
     </header>
     <div class="start-content">
       <div class="advice-box" role="note" aria-live="polite">
-        Match the words with the <span class="highlight-keyword">parts of the body</span> tapping the correct area on the image. <br>Good luck!
+        Match the words with the <span class="highlight-keyword">parts of the body</span> tapping the correct area on the image. <strong>Good luck!</strong>
       </div>
       <button class="btn btn-primary" id="playBtn">Play</button>
     </div>
@@ -164,7 +200,14 @@
         <div class="arrow-wrap">
           <button class="arrow left" id="prevPair" title="Anterior" aria-label="Anterior"></button>
         </div>
-        <div class="word-display" id="wordDisplay">—</div>
+        <div class="word-display-container">
+          <div class="word-display" id="wordDisplay">—</div>
+          <button class="btn-play-word" id="playWordBtn" title="Reproducir palabra" aria-label="Reproducir palabra">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8 5v14l11-7z" fill="currentColor"/>
+            </svg>
+          </button>
+        </div>
         <div class="arrow-wrap">
           <button class="arrow right" id="nextPair" title="Siguiente" aria-label="Siguiente"></button>
         </div>
@@ -203,6 +246,12 @@
   </section>
 </div>
 
+<!-- Loading Indicator -->
+<div class="loading-indicator" id="loadingIndicator" style="display: none;">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Cargando audios...</div>
+</div>
+
 <!-- ===== Help modal (en castellano) ===== -->
 <div id="helpModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:100; justify-content:center; align-items:center; padding:1rem;">
   <div style="background:#fff; border-radius:12px; max-width:680px; width:100%; padding:1.2rem 1.2rem; box-shadow:0 10px 24px rgba(0,0,0,.2);">
@@ -223,38 +272,198 @@
 /************** Data **************/
 const ORIGINAL_W = 494, ORIGINAL_H = 704; // given image dimensions
 const PAIRS = [
-  {x:88,  y:75,  word:'Hair'},
-  {x:84,  y:181, word:'Ear'},
-  {x:118, y:272, word:'Neck'},
-  {x:66,  y:347, word:'Chest'},
-  {x:41,  y:426, word:'Hand'},
-  {x:124, y:589, word:'Leg'},
-  {x:442, y:95,  word:'Eye'},
-  {x:418, y:182, word:'Nose'},
-  {x:396, y:256, word:'Mouth'},
-  {x:414, y:340, word:'Arm'},
-  {x:445, y:415, word:'Belly button (navel)'},
-  {x:378, y:541, word:'knee'},
-  {x:379, y:646, word:'Foot'}
+  {x:88,  y:75,  word:'Hair', audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/Partes%20del%20cuerpo/hair.mp3'},
+  {x:84,  y:181, word:'Ear', audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/Partes%20del%20cuerpo/ear.mp3'},
+  {x:118, y:272, word:'Neck', audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/Partes%20del%20cuerpo/neck.mp3'},
+  {x:66,  y:347, word:'Chest', audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/Partes%20del%20cuerpo/chest.mp3'},
+  {x:41,  y:426, word:'Hand', audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/Partes%20del%20cuerpo/hand.mp3'},
+  {x:124, y:589, word:'Leg', audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/Partes%20del%20cuerpo/leg.mp3'},
+  {x:442, y:95,  word:'Eye', audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/Partes%20del%20cuerpo/eye.mp3'},
+  {x:418, y:182, word:'Nose', audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/Partes%20del%20cuerpo/nose.mp3'},
+  {x:396, y:256, word:'Mouth', audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/Partes%20del%20cuerpo/mouth.mp3'},
+  {x:414, y:340, word:'Arm', audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/Partes%20del%20cuerpo/arm.mp3'},
+  {x:445, y:415, word:'Belly button (navel)', audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/Partes%20del%20cuerpo/Belly%20button.mp3'},
+  {x:378, y:541, word:'knee', audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/Partes%20del%20cuerpo/knee.mp3'},
+  {x:379, y:646, word:'Foot', audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/Partes%20del%20cuerpo/foot.mp3'}
 ];
 
 /************** Audio **************/
 const soundFiles = {
-  completed: 'https://raw.githubusercontent.com/ManuelVS8/Efectos_audio/7b86808e254100aeaba6285b3e0b82650ae78055/Completado.mp3',
-  correct:   'https://raw.githubusercontent.com/ManuelVS8/Efectos_audio/7b86808e254100aeaba6285b3e0b82650ae78055/Correcto.mp3',
-  victory:   'https://raw.githubusercontent.com/ManuelVS8/Efectos_audio/7b86808e254100aeaba6285b3e0b82650ae78055/Termin%C3%A9.mp3',
-  error:     'https://raw.githubusercontent.com/ManuelVS8/Efectos_audio/7b86808e254100aeaba6285b3e0b82650ae78055/Error.mp3',
-  tap:       'https://raw.githubusercontent.com/ManuelVS8/Efectos_audio/37b3eb2da9c15c04dfb71dfe1be60f088ea3cdfc/Tap.mp3'
+  completed: 'https://raw.githubusercontent.com/ManuelVS8/Efectos_audio/main/Completado.mp3',
+  correct:   'https://raw.githubusercontent.com/ManuelVS8/Efectos_audio/main/Correcto.mp3',
+  victory:   'https://raw.githubusercontent.com/ManuelVS8/Efectos_audio/main/Termin%C3%A9.mp3',
+  error:     'https://raw.githubusercontent.com/ManuelVS8/Efectos_audio/main/Error.mp3',
+  tap:       'https://raw.githubusercontent.com/ManuelVS8/Efectos_audio/main/Tap.mp3'
 };
 const sounds = {}; let isMuted = false; let audioUnlocked = false;
 Object.entries(soundFiles).forEach(([k, url])=>{ const a=new Audio(url); a.preload='auto'; sounds[k]=a; });
-function unlockAudio(){ if (audioUnlocked) return; try{ const ctx = new (window.AudioContext||window.webkitAudioContext)(); const o = ctx.createOscillator(); const g = ctx.createGain(); o.connect(g); g.connect(ctx.destination); g.gain.value = 0.0001; o.start(); o.stop(ctx.currentTime + 0.02); }catch(e){} audioUnlocked = true; }
-function play(name){ if(!audioUnlocked || isMuted) return; const a = sounds[name]; if(!a) return; try{ a.currentTime = 0; a.play(); }catch(e){ console.log('Audio play error', e); } }
+
+// Precargar audios de palabras
+const wordAudios = {};
+let currentWordAudio = null; // Para controlar el audio actual que se está reproduciendo
+let pendingAudioTimeout = null; // Para controlar timeouts de audio pendientes
+let audiosPrecargados = false; // Para verificar si los audios ya se precargaron
+
+function preloadWordAudios() {
+  console.log("Precargando audios de palabras...");
+  let loadedCount = 0;
+  let errorCount = 0;
+  
+  return new Promise((resolve) => {
+    PAIRS.forEach((pair, index) => {
+      try {
+        const audio = new Audio();
+        audio.src = pair.audio;
+        audio.preload = 'auto';
+        
+        // Eventos para seguimiento
+        audio.addEventListener('canplaythrough', () => {
+          loadedCount++;
+          console.log(`Audio precargado: ${pair.word} (${loadedCount}/${PAIRS.length})`);
+          
+          // Si todos los audios se cargaron, resolver la promesa
+          if (loadedCount + errorCount === PAIRS.length) {
+            console.log(`Precarga completada: ${loadedCount} exitosos, ${errorCount} con errores`);
+            audiosPrecargados = true;
+            resolve();
+          }
+        });
+        
+        audio.addEventListener('error', (e) => {
+          errorCount++;
+          console.error(`Error al cargar audio para ${pair.word}:`, e);
+          
+          // Si todos los audios se procesaron (con o sin error), resolver la promesa
+          if (loadedCount + errorCount === PAIRS.length) {
+            console.log(`Precarga completada: ${loadedCount} exitosos, ${errorCount} con errores`);
+            audiosPrecargados = true;
+            resolve();
+          }
+        });
+        
+        wordAudios[pair.word] = audio;
+      } catch(e) {
+        errorCount++;
+        console.error(`Error al crear audio para ${pair.word}:`, e);
+        
+        // Si todos los audios se procesaron (con o sin error), resolver la promesa
+        if (loadedCount + errorCount === PAIRS.length) {
+          console.log(`Precarga completada: ${loadedCount} exitosos, ${errorCount} con errores`);
+          audiosPrecargados = true;
+          resolve();
+        }
+      }
+    });
+  });
+}
+
+function unlockAudio(){ 
+  if (audioUnlocked) return; 
+  try{ 
+    const ctx = new (window.AudioContext||window.webkitAudioContext)(); 
+    const o = ctx.createOscillator(); 
+    const g = ctx.createGain(); 
+    o.connect(g); 
+    g.connect(ctx.destination); 
+    g.gain.value = 0.0001; 
+    o.start(); 
+    o.stop(ctx.currentTime + 0.02); 
+    audioUnlocked = true; 
+    console.log("Audio desbloqueado");
+  } catch(e){ 
+    console.error("Error al desbloquear audio:", e);
+  } 
+}
+
+function play(name){ 
+  if(!audioUnlocked) {
+    console.log("Audio bloqueado, intentando desbloquear...");
+    unlockAudio();
+    return;
+  }
+  if(isMuted) return; 
+  const a = sounds[name]; 
+  if(!a) return; 
+  try{ 
+    a.currentTime = 0; 
+    a.play(); 
+  } catch(e){ 
+    console.log('Audio play error', e); 
+  } 
+}
+
 function reproducirSonidoCorrecto(){ play('correct'); }
 function reproducirSonidoError(){ play('error'); }
 function reproducirSonidoCompletado(){ play('completed'); }
 function reproducirSonidoVictoria(){ play('victory'); }
 function reproducirSonidoTap(){ play('tap'); }
+
+function playWordAudio(word, delay = 0) {
+  console.log(`Intentando reproducir audio para: "${word}" con retraso de ${delay}ms`);
+  console.log(`Audio desbloqueado: ${audioUnlocked}, Silenciado: ${isMuted}`);
+  
+  // Cancelar cualquier audio pendiente
+  if (pendingAudioTimeout) {
+    clearTimeout(pendingAudioTimeout);
+    pendingAudioTimeout = null;
+  }
+  
+  // Si el audio no está desbloqueado, intentar desbloquearlo
+  if (!audioUnlocked) {
+    console.log("Desbloqueando audio...");
+    unlockAudio();
+  }
+  
+  if (isMuted) {
+    console.log("Audio en modo silencio");
+    return;
+  }
+  
+  const audio = wordAudios[word];
+  if (!audio) {
+    console.error(`No se encontró audio para la palabra: "${word}"`);
+    console.log("Palabras disponibles:", Object.keys(wordAudios));
+    return;
+  }
+  
+  try {
+    // Pausar el audio actual si está sonando
+    if (currentWordAudio && !currentWordAudio.paused && currentWordAudio !== audio) {
+      currentWordAudio.pause();
+      currentWordAudio.currentTime = 0;
+    }
+    
+    // Establecer el nuevo audio actual
+    currentWordAudio = audio;
+    
+    // Función para reproducir el audio
+    const playAudio = () => {
+      audio.currentTime = 0;
+      const playPromise = audio.play();
+      
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          console.log(`Reproduciendo audio para: "${word}"`);
+        }).catch(error => {
+          console.error(`Error al reproducir audio para "${word}":`, error);
+          if (error.name === 'NotAllowedError') {
+            console.log("Reproducción bloqueada por el navegador - se requiere interacción del usuario");
+          }
+        });
+      }
+    };
+    
+    // Si hay retraso, usar setTimeout
+    if (delay > 0) {
+      pendingAudioTimeout = setTimeout(playAudio, delay);
+      console.log(`Audio programado para reproducir en ${delay}ms`);
+    } else {
+      playAudio();
+    }
+  } catch(e) {
+    console.error('Error al intentar reproducir audio:', e);
+  }
+}
 
 /************** State **************/
 const el = (id)=>document.getElementById(id);
@@ -262,10 +471,12 @@ const bodyImg = el('bodyImg');
 const imgWrap = el('imgWrap');
 const overlayClick = el('overlayClick');
 const wordDisplay = el('wordDisplay');
+const playWordBtn = el('playWordBtn');
 const progressFill = el('progressFill');
 const timerEl = el('timer');
 const scoreEl = el('score');
 const startGameBtn = el('startGameBtn');
+const loadingIndicator = el('loadingIndicator');
 
 let recognitionIndex = 0;            // index in recognition order
 let playOrder = [];                   // randomized order of indices
@@ -275,6 +486,7 @@ let correctCount = 0;                 // number of correct answers
 let timerInt = null; let elapsed = 0; // seconds
 let markers = [];                     // DOM markers references
 let mode = 'recognition';             // 'recognition' | 'play'
+let userInteracted = false;           // track if user has interacted
 
 /************** Utilities **************/
 function fmtTime(s){ const m=Math.floor(s/60).toString().padStart(2,'0'); const ss=(s%60).toString().padStart(2,'0'); return `${m}:${ss}`; }
@@ -317,7 +529,17 @@ function refreshMarkersStyles(){
 }
 
 /************** Modes **************/
-function setWordDisplayByIndex(i){ wordDisplay.textContent = PAIRS[i].word; }
+function setWordDisplayByIndex(i){ 
+  const pair = PAIRS[i];
+  wordDisplay.textContent = pair.word;
+  
+  // En modo de juego, retrasar el audio 0.5 segundos para evitar solapamiento con sonidos de respuesta
+  // En modo de reconocimiento, reproducir inmediatamente
+  const delay = (mode === 'play') ? 500 : 0;
+  
+  // Reproducir audio automáticamente al mostrar la palabra
+  playWordAudio(pair.word, delay);
+}
 function showRecognition(index){ mode='recognition'; const idx=index;
   // clear all styles then highlight current target in green
   markers.forEach(m=> m.classList.remove('target-green'));
@@ -383,29 +605,159 @@ function gotoStart(){ // reset everything
   markers.forEach(m=> m.classList.remove('target-green','reveal-red','correct'));
   // Ocultar botón al volver al inicio
   startGameBtn.style.display = 'none';
+  userInteracted = false;
+  // Detener cualquier audio que esté sonando
+  if (currentWordAudio) {
+    currentWordAudio.pause();
+    currentWordAudio.currentTime = 0;
+    currentWordAudio = null;
+  }
+  // Cancelar cualquier audio pendiente
+  if (pendingAudioTimeout) {
+    clearTimeout(pendingAudioTimeout);
+    pendingAudioTimeout = null;
+  }
+}
+
+// Track user interaction for autoplay
+function trackUserInteraction() {
+  if (!userInteracted) {
+    userInteracted = true;
+    console.log("Usuario ha interactuado, habilitando reproducción automática");
+    unlockAudio();
+  }
 }
 
 // Button wiring
-el('playBtn').addEventListener('click', ()=>{ reproducirSonidoTap(); unlockAudio(); el('startScreen').classList.remove('active'); el('gameScreen').classList.add('active'); elapsed=0; timerEl.textContent='00:00'; startTimer(); // build markers & start recognition
-  placeMarkers(); showRecognition(recognitionIndex);
-  // Make sure next play will have a random order each time the game screen is opened
-  // (recognition still uses fixed order)
-  playOrder = shuffle([...Array(PAIRS.length).keys()]);
+el('playBtn').addEventListener('click', async ()=>{ 
+  trackUserInteraction();
+  reproducirSonidoTap(); 
+  unlockAudio(); 
+  
+  // Mostrar indicador de carga
+  loadingIndicator.style.display = 'flex';
+  
+  // Deshabilitar el botón para evitar múltiples clics
+  el('playBtn').disabled = true;
+  
+  try {
+    // Precargar audios si no se han precargado aún
+    if (!audiosPrecargados) {
+      console.log("Iniciando precarga de audios...");
+      await preloadWordAudios();
+    } else {
+      console.log("Los audios ya estaban precargados");
+    }
+    
+    // Continuar con el flujo normal del juego
+    el('startScreen').classList.remove('active'); 
+    el('gameScreen').classList.add('active'); 
+    elapsed=0; 
+    timerEl.textContent='00:00'; 
+    startTimer(); // build markers & start recognition
+    placeMarkers(); 
+    showRecognition(recognitionIndex);
+    // Make sure next play will have a random order each time the game screen is opened
+    // (recognition still uses fixed order)
+    playOrder = shuffle([...Array(PAIRS.length).keys()]);
+  } catch (error) {
+    console.error("Error durante la precarga de audios:", error);
+    // En caso de error, continuar con el juego de todos modos
+    el('startScreen').classList.remove('active'); 
+    el('gameScreen').classList.add('active'); 
+    elapsed=0; 
+    timerEl.textContent='00:00'; 
+    startTimer();
+    placeMarkers(); 
+    showRecognition(recognitionIndex);
+    playOrder = shuffle([...Array(PAIRS.length).keys()]);
+  } finally {
+    // Ocultar indicador de carga y habilitar el botón
+    loadingIndicator.style.display = 'none';
+    el('playBtn').disabled = false;
+  }
 });
 
 // add tap sound to arrow buttons
-el('prevPair').addEventListener('click', ()=>{ reproducirSonidoTap(); if(mode!=='recognition') return; prevRecognition(); });
-el('nextPair').addEventListener('click', ()=>{ reproducirSonidoTap(); if(mode!=='recognition') return; nextRecognition(); });
+el('prevPair').addEventListener('click', ()=>{ 
+  trackUserInteraction();
+  reproducirSonidoTap(); 
+  if(mode!=='recognition') return; 
+  prevRecognition(); 
+});
+el('nextPair').addEventListener('click', ()=>{ 
+  trackUserInteraction();
+  reproducirSonidoTap(); 
+  if(mode!=='recognition') return; 
+  nextRecognition(); 
+});
 
-startGameBtn.addEventListener('click', ()=>{ reproducirSonidoTap(); beginPlay(); });
+startGameBtn.addEventListener('click', ()=>{ 
+  trackUserInteraction();
+  reproducirSonidoTap(); 
+  beginPlay(); 
+});
 
-el('backToMenuBtn').addEventListener('click', ()=>{ reproducirSonidoTap(); gotoStart(); });
+// Botón de reproducción de palabra - SIN sonido de tap y SIN retraso
+playWordBtn.addEventListener('click', (e) => {
+  e.stopPropagation(); // Evitar propagación
+  trackUserInteraction();
+  const currentWord = wordDisplay.textContent;
+  console.log(`=== BOTÓN PLAY PRESIONADO ===`);
+  console.log(`Palabra actual: "${currentWord}"`);
+  console.log(`Audios disponibles: ${Object.keys(wordAudios).length}`);
+  console.log(`Audio desbloqueado: ${audioUnlocked}, Silenciado: ${isMuted}`);
+  
+  // Forzar el desbloqueo de audio
+  if (!audioUnlocked) {
+    console.log("Forzando desbloqueo de audio...");
+    unlockAudio();
+  }
+  
+  // Reproducir inmediatamente sin retraso
+  playWordAudio(currentWord, 0);
+});
 
-el('helpBtn').addEventListener('click', ()=>{ reproducirSonidoTap(); el('helpModal').style.display='flex'; });
-el('closeHelp').addEventListener('click', ()=>{ reproducirSonidoTap(); el('helpModal').style.display='none'; });
-el('helpModal').addEventListener('click', (e)=>{ if(e.target===el('helpModal')) el('helpModal').style.display='none'; });
+el('backToMenuBtn').addEventListener('click', ()=>{ 
+  trackUserInteraction();
+  reproducirSonidoTap(); 
+  gotoStart(); 
+});
 
-el('muteBtn').addEventListener('click', ()=>{ isMuted = !isMuted; el('muteBtn').textContent = isMuted ? '🔇' : '🔊'; });
+el('helpBtn').addEventListener('click', ()=>{ 
+  trackUserInteraction();
+  reproducirSonidoTap(); 
+  el('helpModal').style.display='flex'; 
+});
+el('closeHelp').addEventListener('click', ()=>{ 
+  trackUserInteraction();
+  reproducirSonidoTap(); 
+  el('helpModal').style.display='none'; 
+});
+el('helpModal').addEventListener('click', (e)=>{ 
+  if(e.target===el('helpModal')) el('helpModal').style.display='none'; 
+});
+
+el('muteBtn').addEventListener('click', ()=>{ 
+  trackUserInteraction();
+  isMuted = !isMuted; 
+  el('muteBtn').textContent = isMuted ? '🔇' : '🔊'; 
+  // Si se activa el silencio, detener cualquier audio de palabra
+  if (isMuted && currentWordAudio) {
+    currentWordAudio.pause();
+    currentWordAudio.currentTime = 0;
+  }
+  // Cancelar cualquier audio pendiente
+  if (pendingAudioTimeout) {
+    clearTimeout(pendingAudioTimeout);
+    pendingAudioTimeout = null;
+  }
+});
+
+// Track any user interaction to enable audio
+document.addEventListener('click', trackUserInteraction, { once: false });
+document.addEventListener('touchstart', trackUserInteraction, { once: false });
+document.addEventListener('keydown', trackUserInteraction, { once: false });
 
 // Keep markers aligned on resize
 window.addEventListener('resize', refreshMarkersStyles);
@@ -418,6 +770,7 @@ bodyImg.addEventListener('load', ()=>{
   } 
 });
 
+// No precargamos audios al cargar la página, solo cuando se presiona el botón Play
 </script>
 </body>
 </html>
