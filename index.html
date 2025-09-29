@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Parts of the body</title>
+<style>
+  /* ====== Reset & base ====== */
+  * { box-sizing: border-box; margin:0; padding:0; }
+  :root{
+    --blue:#001DFF;           /* título principal */
+    --blue-dark:#04032B;      /* borde casillas y final title */
+    --blue-700:#1a3a5f;       /* textos destacados */
+    --blue-600:#254fba;       /* botones azules */
+    --orange:#f59e42;         /* acento y botones */
+    --orange-700:#e67e22;     /* hover */
+    --bg-grad-1:#1a3a5f;      /* fondo gradiente */
+    --bg-grad-2:#0d2340;
+    --white:#ffffff;
+    --green:#2ecc71;
+    --red:#e74c3c;
+    --panel:#E8EAFF;          /* cajas informativas */
+  }
+  body{
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, var(--bg-grad-1) 0%, var(--bg-grad-2) 100%);
+    min-height:100vh; display:flex; justify-content:center; align-items:center; color:#333; padding:10px;
+  }
+  .game-container{
+    background:var(--white); border-radius:16px; box-shadow:0 12px 24px rgba(0,0,0,.12);
+    padding:1.2rem; max-width:980px; width:100%; min-height:640px; position:relative; overflow:hidden;
+    display:flex; flex-direction:column;
+  }
+  header{ text-align:center; margin-bottom:.8rem; margin-top:2rem; }
+  h1{ color:var(--blue); font-size:clamp(2rem,5.2vw,3.1rem); font-weight:900; letter-spacing:.5px; }
+  .subtitle{ color:var(--blue-700); font-size:clamp(1rem,3.5vw,1.25rem); margin-top:.25rem; }
+  .highlight-keyword{ color:var(--orange); font-weight:800; }
+
+  /* Global UI bits to mirror style of reference app */
+  .btn{ color:#fff; border:none; padding:.75rem 1.2rem; border-radius:10px; cursor:pointer; font-weight:800;
+        transition:transform .08s ease, box-shadow .2s ease, background-color .25s ease; min-width:140px; height:48px;
+        display:inline-flex; align-items:center; justify-content:center; }
+  .btn:hover{ transform:translateY(-2px); box-shadow:0 6px 14px rgba(0,0,0,.12); }
+  .btn:active{ transform:translateY(0); }
+  .btn-primary{ background:var(--orange); }
+  .btn-primary:hover{ background:var(--orange-700); }
+  .btn-blue{ background:var(--blue-600); }
+  .btn-blue:hover{ filter:brightness(.9); }
+  .btn-ghost{ background:#e6f2ff; color:var(--blue-700); }
+
+  .screen{ display:none; animation:fadeIn .35s ease; }
+  .screen.active{ display:block; }
+  @keyframes fadeIn{ from{opacity:0; transform:translateY(12px);} to{opacity:1; transform:translateY(0);} }
+
+  /* Top controls (timer / progress) */
+  .game-info{ display:flex; gap:.6rem; align-items:center; justify-content:space-between; margin:.4rem 0 1rem; flex-wrap:wrap; }
+  .timer{ font-weight:900; color:var(--blue-700); font-size:clamp(.95rem,2.3vw,1.15rem); }
+  .progress-bar{ flex:1; height:10px; background:#e6f2ff; border-radius:999px; overflow:hidden; }
+  .progress-fill{ height:100%; width:0%; background:linear-gradient(90deg, var(--orange) 0%, var(--orange-700) 100%); transition:width .3s ease; }
+  .score{ font-weight:900; color:var(--blue-700); font-size:clamp(.9rem,2.3vw,1.1rem); }
+
+  /* Start screen */
+  .start-content{ display:flex; flex-direction:column; justify-content:center; align-items:center; flex:1; gap:1rem; padding:1rem; }
+  .advice-box{ background:var(--panel); border-left:4px solid var(--blue-700); padding:1rem 1.2rem; border-radius:12px;
+               color:var(--blue-700); max-width:760px; text-align:center; font-size:clamp(1rem,3vw,1.15rem); }
+
+  /* Sound & help buttons */
+  .mute-btn{ position:absolute; top:.8rem; right:4.5rem; background:var(--orange); color:#fff; border:2px solid #fff; width:38px; height:38px; border-radius:50%; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center; z-index:20; }
+  .mute-btn:hover{ background:var(--orange-700); }
+  .help-btn{ position:absolute; top:.8rem; right:.8rem; width:38px; height:38px; border-radius:50%; border:none; background:#9c27b0; color:#fff; font-weight:800; cursor:pointer; z-index:20; }
+
+  /* Game layout */
+  .board{ display:grid; grid-template-columns:1fr; gap:.8rem; align-items:start; }
+  .panel{ background:#f8fbff; border:2px solid #d3e2ff; border-radius:12px; padding:.7rem .9rem; display:flex; align-items:center; justify-content:space-between; gap:.8rem; }
+  .word-display{ font-size:clamp(1.2rem,4.5vw,1.8rem); font-weight:900; color:var(--blue-700); text-align:center; flex:1; }
+
+  /* Arrow buttons made of triangles */
+  .arrow-wrap{ display:flex; gap:.5rem; align-items:center; }
+  .arrow{ width:44px; height:44px; background:transparent; border:none; position:relative; cursor:pointer; }
+  .arrow:active{ transform:scale(.96); }
+  .arrow.left::before, .arrow.right::before{ content:""; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+      width:0; height:0; border-top:12px solid transparent; border-bottom:12px solid transparent; }
+  .arrow.left::before{ border-right:18px solid var(--blue-600); margin-left:-3px; }
+  .arrow.right::before{ border-left:18px solid var(--blue-600); margin-left:3px; }
+
+  .startGameArea{ display:flex; gap:.6rem; align-items:center; justify-content:center; margin-top:.4rem; }
+  .btn-start-inline{ display:inline-flex; } /* Siempre visible durante reconocimiento */
+
+  /* Image stage */
+  .stage{ background:#fff; border-radius:12px; border:2px solid #e6f2ff; padding:.6rem; box-shadow: inset 0 0 0 1px #f3f7ff; }
+  .img-wrap{ position:relative; width:100%; max-width:680px; margin:0 auto; }
+  .img-wrap img{ display:block; width:100%; height:auto; border-radius:10px; user-select:none; -webkit-user-drag:none; }
+
+  /* Selection squares */
+  .marker{ position:absolute; width:60px; height:60px; background:#fff; border:3px solid var(--blue-dark); border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.08); transform:translate(-50%,-50%); display:flex; align-items:center; justify-content:center; pointer-events:auto; }
+  .marker.correct{ border-color:#20b86a; background:#ecfff4; }
+  .marker.target-green{ outline:3px solid #20b86a; outline-offset:-3px; background:#ecfff4; }
+  .marker.reveal-red{ outline:3px solid #e74c3c; outline-offset:-3px; background:#fff1f1; }
+  .overlay-click{ position:absolute; inset:0; }
+
+  /* Results screen */
+  .results{ display:flex; flex-direction:column; align-items:center; gap:.6rem; text-align:center; min-height:calc(100vh - 180px); }
+  .final-title{ color:var(--blue-dark); font-weight:900; }
+  .big-score{ font-size:clamp(2.2rem,6vw,3.4rem); color:var(--blue-600); font-weight:900; }
+  .score-title{ font-size:1.0rem; color:var(--blue-700); margin-top:1rem; }
+  .final-time{ color:var(--blue-700); }
+  .trophy{ font-size:clamp(4rem,10vw,6rem); margin:.2rem 0; color:var(--orange); animation:bounce 1s ease infinite; }
+  @keyframes bounce { 0%,100%{ transform:translateY(0);} 50%{ transform:translateY(-8px);} }
+  .credit{ color:var(--blue-700); margin-top:1rem; }
+  .school-logo{ display:block; margin:1rem auto 0; max-width:160px; height:auto; }
+
+  /* Confetti */
+  .confetti{ position:fixed; width:10px; height:10px; border-radius:50%; animation: confetti-fall 3s linear forwards; z-index:999; }
+  @keyframes confetti-fall{ 0%{ transform:translate(0, -20px) rotate(0); opacity:1;} 100%{ transform:translate(var(--tx), var(--ty)) rotate(360deg); opacity:0; } }
+
+  /* Responsive layout: optimized for vertical screens */
+  @media (min-width:900px){ .board{ grid-template-columns: 360px 1fr; align-items:start; } .panel{ order:1; } .stage{ order:2; } }
+  @media (max-width:899px){ /* vertical phones & tablets */
+    header{ margin-top:1.6rem; }
+    .board{ grid-template-columns:1fr; }
+    .panel{ display:flex; flex-direction:row; align-items:center; justify-content:space-between; padding:.6rem; }
+    /* place word display at top full width and image below */
+    .word-display{ order:0; width:100%; margin-bottom:.6rem; }
+    .stage{ order:1; }
+    .arrow{ width:40px; height:40px; }
+  }
+  @media (max-width:420px){ .btn{ min-width:110px; padding:.6rem .9rem; height:44px; } }
+</style>
+</head>
+<body>
+<div class="game-container">
+  <button class="mute-btn" id="muteBtn" title="Silenciar/Activar sonido">🔊</button>
+
+  <!-- ===== Start Screen ===== -->
+  <section class="screen active" id="startScreen" aria-labelledby="title">
+    <header>
+      <h1 id="title">Parts of the body</h1>
+      <br>
+      <div class="subtitle">Identify the <span class="highlight-keyword">parts of the body</span>.</div>
+    </header>
+    <div class="start-content">
+      <div class="advice-box" role="note" aria-live="polite">
+        Match the words with the <span class="highlight-keyword">parts of the body</span> tapping the correct area on the image. <br>Good luck!
+      </div>
+      <button class="btn btn-primary" id="playBtn">Play</button>
+    </div>
+  </section>
+
+  <!-- ===== Game Screen (recognition + play) ===== -->
+  <section class="screen" id="gameScreen">
+    <button class="help-btn" id="helpBtn" title="Ayuda">?</button>
+    <header>
+      <h1>Parts of the body</h1>
+    </header>
+    <div class="game-info">
+      <div class="timer" id="timer">00:00</div>
+      <div class="progress-bar" aria-label="Progreso"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="score">Score: <span id="score">0</span>/100</div>
+    </div>
+
+    <div class="board">
+      <!-- Control panel: word and arrows (words on top for vertical) -->
+      <div class="panel" aria-live="polite">
+        <div class="arrow-wrap">
+          <button class="arrow left" id="prevPair" title="Anterior" aria-label="Anterior"></button>
+        </div>
+        <div class="word-display" id="wordDisplay">—</div>
+        <div class="arrow-wrap">
+          <button class="arrow right" id="nextPair" title="Siguiente" aria-label="Siguiente"></button>
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="img-wrap" id="imgWrap">
+          <img id="bodyImg" src="https://raw.githubusercontent.com/ManuelVS8/Fotos/refs/heads/main/Body.png" alt="Body silhouette for identifying parts">
+          <!-- Markers inserted by JS -->
+          <div class="overlay-click" id="overlayClick" aria-hidden="true"></div>
+        </div>
+        <div class="startGameArea">
+          <button class="btn btn-primary btn-start-inline" id="startGameBtn">Start the game</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Results Screen ===== -->
+  <section class="screen" id="resultsScreen">
+    <header>
+      <h1 class="final-title">Parts of the body</h1>
+    </header>
+    <div class="results">
+      <div id="trophyBox" style="display:none;">
+        <div class="trophy">🏆</div>
+      </div>
+      <div class="score-title">Score</div>
+      <div class="big-score" id="finalScore">0</div>
+      <div class="final-time">Time: <span id="finalTime">00:00</span></div>
+      <div id="finalMsg" class="subtitle"></div>
+      <button class="btn btn-primary" id="backToMenuBtn" style="background:var(--orange);">Back to menu</button>
+      <span class="credit">Created by Manuel J. Ventura</span>
+      <img class="school-logo" src="https://raw.githubusercontent.com/ManuelVS8/Efectos_audio/1e2a36cdd1f8bedcb578a30f5ec5cc8f21c287fe/Siurot.png" alt="School logo" />
+    </div>
+  </section>
+</div>
+
+<!-- ===== Help modal (en castellano) ===== -->
+<div id="helpModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:100; justify-content:center; align-items:center; padding:1rem;">
+  <div style="background:#fff; border-radius:12px; max-width:680px; width:100%; padding:1.2rem 1.2rem; box-shadow:0 10px 24px rgba(0,0,0,.2);">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:.5rem; margin-bottom:.8rem;">
+      <h3 style="color:var(--blue-700);">Cómo jugar</h3>
+      <button class="btn-ghost" id="closeHelp" style="border-radius:8px; padding:.4rem .7rem; height:auto; min-width:auto;">Cerrar</button>
+    </div>
+    <div style="line-height:1.55; color:#333;">
+      <p><strong style="color: #001A73; font-weight: bold;">Ronda de reconocimiento:</strong> navega con las  <strong style="color: #001A73; font-weight: bold;">flechas izquierda/derecha</strong>. Verás la palabra y la casilla correspondiente resaltada en verde.</p>
+      <br>
+      <p><strong style="color: #001A73; font-weight: bold;">Pulsa Start the game</strong> para comenzar. Aparecerá una palabra; pulsa la casilla correcta en la imagen.</p>
+  
+    </div>
+  </div>
+</div>
+
+<script>
+/************** Data **************/
+const ORIGINAL_W = 494, ORIGINAL_H = 704; // given image dimensions
+const PAIRS = [
+  {x:88,  y:75,  word:'Hair'},
+  {x:84,  y:181, word:'Ear'},
+  {x:118, y:272, word:'Neck'},
+  {x:66,  y:347, word:'Chest'},
+  {x:41,  y:426, word:'Hand'},
+  {x:124, y:589, word:'Leg'},
+  {x:442, y:95,  word:'Eye'},
+  {x:418, y:182, word:'Nose'},
+  {x:396, y:256, word:'Mouth'},
+  {x:414, y:340, word:'Arm'},
+  {x:445, y:415, word:'Belly button (navel)'},
+  {x:378, y:541, word:'knee'},
+  {x:379, y:646, word:'Foot'}
+];
+
+/************** Audio **************/
+const soundFiles = {
+  completed: 'https://raw.githubusercontent.com/ManuelVS8/Efectos_audio/7b86808e254100aeaba6285b3e0b82650ae78055/Completado.mp3',
+  correct:   'https://raw.githubusercontent.com/ManuelVS8/Efectos_audio/7b86808e254100aeaba6285b3e0b82650ae78055/Correcto.mp3',
+  victory:   'https://raw.githubusercontent.com/ManuelVS8/Efectos_audio/7b86808e254100aeaba6285b3e0b82650ae78055/Termin%C3%A9.mp3',
+  error:     'https://raw.githubusercontent.com/ManuelVS8/Efectos_audio/7b86808e254100aeaba6285b3e0b82650ae78055/Error.mp3',
+  tap:       'https://raw.githubusercontent.com/ManuelVS8/Efectos_audio/37b3eb2da9c15c04dfb71dfe1be60f088ea3cdfc/Tap.mp3'
+};
+const sounds = {}; let isMuted = false; let audioUnlocked = false;
+Object.entries(soundFiles).forEach(([k, url])=>{ const a=new Audio(url); a.preload='auto'; sounds[k]=a; });
+function unlockAudio(){ if (audioUnlocked) return; try{ const ctx = new (window.AudioContext||window.webkitAudioContext)(); const o = ctx.createOscillator(); const g = ctx.createGain(); o.connect(g); g.connect(ctx.destination); g.gain.value = 0.0001; o.start(); o.stop(ctx.currentTime + 0.02); }catch(e){} audioUnlocked = true; }
+function play(name){ if(!audioUnlocked || isMuted) return; const a = sounds[name]; if(!a) return; try{ a.currentTime = 0; a.play(); }catch(e){ console.log('Audio play error', e); } }
+function reproducirSonidoCorrecto(){ play('correct'); }
+function reproducirSonidoError(){ play('error'); }
+function reproducirSonidoCompletado(){ play('completed'); }
+function reproducirSonidoVictoria(){ play('victory'); }
+function reproducirSonidoTap(){ play('tap'); }
+
+/************** State **************/
+const el = (id)=>document.getElementById(id);
+const bodyImg = el('bodyImg');
+const imgWrap = el('imgWrap');
+const overlayClick = el('overlayClick');
+const wordDisplay = el('wordDisplay');
+const progressFill = el('progressFill');
+const timerEl = el('timer');
+const scoreEl = el('score');
+const startGameBtn = el('startGameBtn');
+
+let recognitionIndex = 0;            // index in recognition order
+let playOrder = [];                   // randomized order of indices
+let playIndex = 0;                    // index within playOrder
+let answered = new Set();             // indices already answered
+let correctCount = 0;                 // number of correct answers
+let timerInt = null; let elapsed = 0; // seconds
+let markers = [];                     // DOM markers references
+let mode = 'recognition';             // 'recognition' | 'play'
+
+/************** Utilities **************/
+function fmtTime(s){ const m=Math.floor(s/60).toString().padStart(2,'0'); const ss=(s%60).toString().padStart(2,'0'); return `${m}:${ss}`; }
+function startTimer(){ clearInterval(timerInt); timerInt = setInterval(()=>{ elapsed++; timerEl.textContent = fmtTime(elapsed); },1000); }
+function stopTimer(){ clearInterval(timerInt); }
+function updateProgress(){ const pct = (answered.size / PAIRS.length)*100; progressFill.style.width = pct + '%'; scoreEl.textContent = Math.round((correctCount/PAIRS.length)*100); }
+
+/************** Markers placement (scaled) **************/
+function placeMarkers(){
+  // remove existing
+  markers.forEach(m=>m.remove()); markers = [];
+  const rect = bodyImg.getBoundingClientRect();
+  const scaleX = rect.width / ORIGINAL_W; // should equal scaleY as aspect kept
+  const scaleY = rect.height/ ORIGINAL_H;
+  PAIRS.forEach((p, idx)=>{
+    const x = p.x * scaleX; const y = p.y * scaleY;
+    const div = document.createElement('div');
+    div.className = 'marker';
+    div.style.left = x + 'px';
+    div.style.top  = y + 'px';
+    div.dataset.idx = idx;
+    div.tabIndex = 0; // accessibility focusable
+    div.setAttribute('role','button');
+    div.setAttribute('aria-label', `Marker ${p.word}`);
+    div.addEventListener('click', onMarkerClick);
+    div.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); onMarkerClick.call(div, e); }});
+    imgWrap.appendChild(div); markers.push(div);
+  });
+}
+
+function refreshMarkersStyles(){
+  // Called on resize to reposition markers accurately
+  const rect = bodyImg.getBoundingClientRect();
+  const scaleX = rect.width / ORIGINAL_W; const scaleY = rect.height/ ORIGINAL_H;
+  markers.forEach((div)=>{
+    const idx = +div.dataset.idx; const p = PAIRS[idx];
+    div.style.left = (p.x*scaleX) + 'px';
+    div.style.top  = (p.y*scaleY) + 'px';
+  });
+}
+
+/************** Modes **************/
+function setWordDisplayByIndex(i){ wordDisplay.textContent = PAIRS[i].word; }
+function showRecognition(index){ mode='recognition'; const idx=index;
+  // clear all styles then highlight current target in green
+  markers.forEach(m=> m.classList.remove('target-green'));
+  const target = markers[idx]; if(target){ target.classList.add('target-green'); }
+  setWordDisplayByIndex(idx);
+  // Siempre mostrar el botón durante reconocimiento
+  startGameBtn.style.display = 'inline-flex';
+}
+function nextRecognition(){ if(recognitionIndex < PAIRS.length-1){ recognitionIndex++; showRecognition(recognitionIndex); }
+  else { recognitionIndex = PAIRS.length - 1; showRecognition(recognitionIndex); }
+}
+function prevRecognition(){ if(recognitionIndex>0){ recognitionIndex--; showRecognition(recognitionIndex); } }
+
+function beginPlay(){ mode='play'; playOrder = shuffle([...Array(PAIRS.length).keys()]); playIndex=0; answered.clear(); correctCount=0; updateProgress();
+  // remove recognition green outline
+  markers.forEach(m=> m.classList.remove('target-green','reveal-red','correct'));
+  // show first word
+  setWordDisplayByIndex(playOrder[playIndex]);
+  // Ocultar botón durante el juego para evitar reinicios
+  startGameBtn.style.display = 'none';
+}
+
+function onMarkerClick(e){ if(mode!=='play') return; const idxClicked = +this.dataset.idx; const currentIdx = playOrder[playIndex];
+  if(answered.has(currentIdx)) return; // already answered
+  if(idxClicked===currentIdx){ // correct
+    this.classList.add('correct');
+    reproducirSonidoCorrecto();
+    answered.add(currentIdx); correctCount++; updateProgress();
+  } else { // incorrect → highlight correct one in red (not the one clicked)
+    const rightMarker = markers[currentIdx];
+    if(rightMarker){ rightMarker.classList.add('reveal-red'); }
+    reproducirSonidoError();
+    answered.add(currentIdx); updateProgress();
+  }
+  // advance to next immediately (no delay)
+  if(answered.size === PAIRS.length){ finishGame(); }
+  else { playIndex++; setWordDisplayByIndex(playOrder[playIndex]); }
+}
+
+/************** Finish **************/
+function finishGame(){ stopTimer(); const score = Math.round((correctCount/PAIRS.length)*100);
+  // Screen switch
+  el('gameScreen').classList.remove('active'); el('resultsScreen').classList.add('active');
+  // Results: show number only under Score title
+  el('finalScore').textContent = score; el('finalTime').textContent = fmtTime(elapsed);
+  el('trophyBox').style.display = (score===100) ? 'block' : 'none';
+  const msg = (score===100) ? 'Excellent! Perfect score!' : 'Well done! Keep practising!';
+  el('finalMsg').textContent = msg;
+  if(score===100){ reproducirSonidoVictoria(); spawnConfetti(); } else { reproducirSonidoCompletado(); }
+}
+
+/************** Helpers **************/
+function shuffle(a){ const arr=[...a]; for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
+function spawnConfetti(){ for(let i=0;i<120;i++){ setTimeout(()=>{ const c=document.createElement('div'); c.className='confetti'; const x=Math.random()*window.innerWidth; const ty=window.innerHeight+20; const tx=(Math.random()-.5)*160; const colors=['#ff595e','#1982c4','#6a4c93','#ffca3a','#8ac926','#ff924c','#00c2ff']; c.style.left=x+'px'; c.style.top='-10px'; c.style.backgroundColor=colors[Math.floor(Math.random()*colors.length)]; const size=6+Math.random()*8; c.style.width=size+'px'; c.style.height=size+'px'; c.style.setProperty('--tx', tx+'px'); c.style.setProperty('--ty', ty+'px'); document.body.appendChild(c); setTimeout(()=>c.remove(), 3200); }, i*18); } }
+
+/************** Routing & Events **************/
+function gotoStart(){ // reset everything
+  // screens
+  el('resultsScreen').classList.remove('active'); el('gameScreen').classList.remove('active'); el('startScreen').classList.add('active');
+  // state
+  recognitionIndex = 0; playOrder=[]; playIndex=0; answered.clear(); correctCount=0; elapsed=0; timerEl.textContent='00:00'; progressFill.style.width='0%'; scoreEl.textContent='0'; mode='recognition';
+  // markers reset
+  markers.forEach(m=> m.classList.remove('target-green','reveal-red','correct'));
+  // Ocultar botón al volver al inicio
+  startGameBtn.style.display = 'none';
+}
+
+// Button wiring
+el('playBtn').addEventListener('click', ()=>{ reproducirSonidoTap(); unlockAudio(); el('startScreen').classList.remove('active'); el('gameScreen').classList.add('active'); elapsed=0; timerEl.textContent='00:00'; startTimer(); // build markers & start recognition
+  placeMarkers(); showRecognition(recognitionIndex);
+  // Make sure next play will have a random order each time the game screen is opened
+  // (recognition still uses fixed order)
+  playOrder = shuffle([...Array(PAIRS.length).keys()]);
+});
+
+// add tap sound to arrow buttons
+el('prevPair').addEventListener('click', ()=>{ reproducirSonidoTap(); if(mode!=='recognition') return; prevRecognition(); });
+el('nextPair').addEventListener('click', ()=>{ reproducirSonidoTap(); if(mode!=='recognition') return; nextRecognition(); });
+
+startGameBtn.addEventListener('click', ()=>{ reproducirSonidoTap(); beginPlay(); });
+
+el('backToMenuBtn').addEventListener('click', ()=>{ reproducirSonidoTap(); gotoStart(); });
+
+el('helpBtn').addEventListener('click', ()=>{ reproducirSonidoTap(); el('helpModal').style.display='flex'; });
+el('closeHelp').addEventListener('click', ()=>{ reproducirSonidoTap(); el('helpModal').style.display='none'; });
+el('helpModal').addEventListener('click', (e)=>{ if(e.target===el('helpModal')) el('helpModal').style.display='none'; });
+
+el('muteBtn').addEventListener('click', ()=>{ isMuted = !isMuted; el('muteBtn').textContent = isMuted ? '🔇' : '🔊'; });
+
+// Keep markers aligned on resize
+window.addEventListener('resize', refreshMarkersStyles);
+
+// After image load, ensure markers are placed if already in game
+bodyImg.addEventListener('load', ()=>{ 
+  if(document.getElementById('gameScreen').classList.contains('active')){ 
+    placeMarkers(); 
+    if(mode==='recognition') showRecognition(recognitionIndex); 
+  } 
+});
+
+</script>
+</body>
+</html>
