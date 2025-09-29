@@ -63,6 +63,7 @@
   .start-content{ display:flex; flex-direction:column; justify-content:center; align-items:center; flex:1; gap:1rem; padding:1rem; }
   .advice-box{ background:var(--panel); border-left:4px solid var(--blue-700); padding:1rem 1.2rem; border-radius:12px;
                color:var(--blue-700); max-width:760px; text-align:center; font-size:clamp(1rem,3vw,1.15rem); }
+  .start-image{ max-width: 300px; width: 100%; margin: 0 auto; }
 
   /* Sound & help buttons */
   .mute-btn{ position:absolute; top:.8rem; right:4.5rem; background:var(--orange); color:#fff; border:2px solid #fff; width:38px; height:38px; border-radius:50%; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center; z-index:20; }
@@ -179,6 +180,7 @@
         Match the words with the <span class="highlight-keyword">parts of the body</span> tapping the correct area on the image. <strong>Good luck!</strong>
       </div>
       <button class="btn btn-primary" id="playBtn">Play</button>
+      <img class="start-image" src="https://raw.githubusercontent.com/ManuelVS8/Efectos_audio/refs/heads/main/Ni%C3%B1os.png" alt="Children learning">
     </div>
   </section>
 
@@ -560,6 +562,10 @@ function beginPlay(){ mode='play'; playOrder = shuffle([...Array(PAIRS.length).k
   setWordDisplayByIndex(playOrder[playIndex]);
   // Ocultar botón durante el juego para evitar reinicios
   startGameBtn.style.display = 'none';
+  // Iniciar el temporizador cuando comienza el juego
+  elapsed = 0;
+  timerEl.textContent = '00:00';
+  startTimer();
 }
 
 function onMarkerClick(e){ if(mode!=='play') return; const idxClicked = +this.dataset.idx; const currentIdx = playOrder[playIndex];
@@ -652,9 +658,7 @@ el('playBtn').addEventListener('click', async ()=>{
     // Continuar con el flujo normal del juego
     el('startScreen').classList.remove('active'); 
     el('gameScreen').classList.add('active'); 
-    elapsed=0; 
-    timerEl.textContent='00:00'; 
-    startTimer(); // build markers & start recognition
+    // No iniciar el temporizador aquí, solo cuando se pulse "Start the game"
     placeMarkers(); 
     showRecognition(recognitionIndex);
     // Make sure next play will have a random order each time the game screen is opened
@@ -665,9 +669,6 @@ el('playBtn').addEventListener('click', async ()=>{
     // En caso de error, continuar con el juego de todos modos
     el('startScreen').classList.remove('active'); 
     el('gameScreen').classList.add('active'); 
-    elapsed=0; 
-    timerEl.textContent='00:00'; 
-    startTimer();
     placeMarkers(); 
     showRecognition(recognitionIndex);
     playOrder = shuffle([...Array(PAIRS.length).keys()]);
